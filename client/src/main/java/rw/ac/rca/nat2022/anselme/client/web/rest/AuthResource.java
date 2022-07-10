@@ -2,6 +2,9 @@ package rw.ac.rca.nat2022.anselme.client.web.rest;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -9,6 +12,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.client.RestTemplate;
+import rw.ac.rca.nat2022.anselme.client.dao.Course;
 import rw.ac.rca.nat2022.anselme.client.utils.ApiResponse;
 
 import javax.servlet.http.HttpServletRequest;
@@ -71,7 +75,7 @@ public class AuthResource {
 
             request.getSession().setAttribute("token", Objects.requireNonNull(res.getBody()).getMessage());
 
-            return "redirect:/auth/profile";
+            return "redirect:/auth/dashboard";
 
         } catch (Exception e) {
             ApiResponse response = new ObjectMapper().readValue(e.getMessage().substring(7, e.getMessage().length() - 1), ApiResponse.class);
@@ -82,11 +86,29 @@ public class AuthResource {
         }
     }
 
-    @GetMapping("/profile")
-    public String profile(HttpServletRequest request) {
+    @GetMapping("/dashboard")
+    public String profile(HttpServletRequest request, Model model) {
 
-        System.out.println(request.getSession().getAttribute("token"));
+        if(request.getSession().getAttribute("token").toString().isEmpty()){
+            return "redirect:/auth/login";
+        }
 
-        return "auth/profile";
+        RestTemplate restTemplate = new RestTemplate();
+        HttpHeaders headers = new HttpHeaders();
+
+        String token = request.getSession().getAttribute("token").toString();
+
+        headers.setBearerAuth(token);
+
+        HttpEntity<Object> entity = new HttpEntity<>(null, headers);
+
+        ResponseEntity<Course[]> coursesResponse = restTemplate.exchange(formatURL("/api/courses"), HttpMethod.GET, entity, Course[].class);
+
+        ResponseEntity<Course[]> studentsResponse = restTemplate.exchange(formatURL("/api/students"), HttpMethod.GET, entity, Course[].class);
+
+        model.addAttribute("totalCourses", Objects.requireNonNull(coursesResponse.getBody()).length);
+        model.addAttribute("totalStudents", Objects.requireNonNull(studentsResponse.getBody()).length);
+
+        return "auth/dashboard";
     }
 }
